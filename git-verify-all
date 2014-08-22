@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+# This script will return the latest commit in this branch history that is signed&trusted
+
+latest_tag() {
+    #latest signed tag from current branch
+    to=$1
+    while true; do
+        tag=$(git describe --abbrev=0 $1)
+        if [ "$?" -eq 128 ]; then # no such tag
+            return 1
+        fi
+
+        if git tag -v "$tag" &> /dev/null; then
+            echo $tag
+            return 0
+        else
+            to="${tag}^"
+        fi
+    done
+}
+
+get_latest_verified() {
+    to=$1
+    known_good=$2
+    shift 2
+    # G? means "check signature"; only "G" (good) are ok for us
+    # we are traversing the log in reverse order (through tac)
+    # and will stop at the first non-good commit
+    git log --pretty="%G? %H %GS" "$known_good..$to" | tac | \
+        while read line; do
+            if egrep -q '^G ' <<<"$line"; then
+                known_good="$(awk '{ print $2 }' <<<"$line")"
+            else
+                echo $known_good
+                return 1
+            fi
+        done && echo $known_good
+    return 0
+}
+
+if [ -z "$known_good" ]; then
+    known_good=$(latest_tag $to)
+fi
+get_latest_verified ${1:-HEAD} $known_good
