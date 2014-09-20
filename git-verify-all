@@ -23,6 +23,7 @@ latest_tag() {
 get_latest_verified() {
     to=$1
     known_good=$2
+    local latest_good
     shift 2
     # G? means "check signature"; only "G" (good) are ok for us
     # we are traversing the log in reverse order (through tac)
@@ -30,12 +31,12 @@ get_latest_verified() {
     git log --pretty="%G? %H %GS" "$known_good..$to" | tac | \
         while read line; do
             if egrep -q '^G ' <<<"$line"; then
-                known_good="$(awk '{ print $2 }' <<<"$line")"
+                latest_good="$(awk '{ print $2 }' <<<"$line")"
             else
-                echo $known_good
+                echo "BAD: $line"
                 return 1
             fi
-        done && echo $known_good
+        done
     return 0
 }
 
