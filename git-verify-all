@@ -32,6 +32,7 @@ get_latest_verified() {
         while read line; do
             if egrep -q '^G ' <<<"$line"; then
                 latest_good="$(awk '{ print $2 }' <<<"$line")"
+                debug "Good: $latest_good"
             else
                 echo "BAD: $line"
                 return 1
@@ -40,7 +41,44 @@ get_latest_verified() {
     return 0
 }
 
+usage() {
+    echo "$0 [options] [REF]"
+    echo "  Verifies if all commit preceding REF are signed and trusted"
+    echo "Options:"
+    echo "    -k KNOWN_GOOD    Assumes that KNOWN_GOOD is verified, and starts from it"
+    echo "    -h               Shows this help"
+}
+
+debug() {
+    if [ $verbose -gt 0 ]; then
+        echo "[D] $1"
+    fi
+}
+
+verbose=0
+known_good=
+while getopts 'hvk:' opt ; do
+    case $opt in
+        h)
+            usage
+            exit 0
+            ;;
+        k)
+            known_good=$OPTARG
+            ;;
+        v)
+            verbose=1
+            ;;
+        \?)
+            echo "Invalid options: -$OPTARG" >&2
+            exit 2
+            ;;
+        esac
+done
+shift $((OPTIND-1))
+
 if [ -z "$known_good" ]; then
     known_good=$(latest_tag $to)
+    debug "knowngood discovered: $known_good"
 fi
 get_latest_verified ${1:-HEAD} $known_good
